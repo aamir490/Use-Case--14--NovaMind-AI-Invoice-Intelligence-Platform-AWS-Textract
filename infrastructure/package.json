@@ -1,0 +1,28 @@
+{
+  "name": "invoice-intelligence-infrastructure",
+  "version": "1.0.0",
+  "description": "AWS CDK infrastructure for the Invoice Intelligence Platform",
+  "main": "bin/app.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "deploy": "cdk deploy --all --require-approval never",
+    "deploy:dev": "cdk deploy --all --require-approval never --context env=dev",
+    "deploy:prod": "cdk deploy --all --require-approval never --context env=prod",
+    "diff": "cdk diff",
+    "synth": "cdk synth",
+    "destroy": "cdk destroy --all"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "aws-cdk": "2.1138.0",
+    "typescript": "~5.4.0",
+    "ts-node": "^10.9.2"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.266.0",
+    "constructs": "^10.0.0",
+    "source-map-support": "^0.5.21"
+  }
+}

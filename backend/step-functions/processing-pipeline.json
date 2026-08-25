@@ -1,0 +1,149 @@
+{
+  "Comment": "Invoice Intelligence Platform — Processing Pipeline",
+  "StartAt": "OCR",
+  "States": {
+    "OCR": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${OCRLambdaArn}",
+        "Payload.$": "$"
+      },
+      "ResultSelector": {
+        "Payload.$": "$.Payload"
+      },
+      "ResultPath": "$",
+      "OutputPath": "$.Payload",
+      "Next": "AIAnalysis",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleFailure",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+
+    "AIAnalysis": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${AIAnalysisLambdaArn}",
+        "Payload.$": "$"
+      },
+      "ResultSelector": {
+        "Payload.$": "$.Payload"
+      },
+      "ResultPath": "$",
+      "OutputPath": "$.Payload",
+      "Next": "RiskScoring",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleFailure",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+
+    "RiskScoring": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${RiskScoringLambdaArn}",
+        "Payload.$": "$"
+      },
+      "ResultSelector": {
+        "Payload.$": "$.Payload"
+      },
+      "ResultPath": "$",
+      "OutputPath": "$.Payload",
+      "Next": "StoreResults",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleFailure",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+
+    "StoreResults": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${StoreResultsLambdaArn}",
+        "Payload.$": "$"
+      },
+      "ResultSelector": {
+        "Payload.$": "$.Payload"
+      },
+      "ResultPath": "$",
+      "OutputPath": "$.Payload",
+      "End": true,
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleFailure",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+
+    "HandleFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${JobsTableName}",
+        "Key": {
+          "job_id": {
+            "S.$": "$.job_id"
+          }
+        },
+        "UpdateExpression": "SET #s = :failed, stage = :stage, error_message = :err, updated_at = :now",
+        "ExpressionAttributeNames": {
+          "#s": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":failed": { "S": "FAILED" },
+          ":stage": { "S": "ERROR" },
+          ":err": { "S.$": "States.JsonToString($.error)" },
+          ":now": { "S.$": "$$.Execution.StartTime" }
+        }
+      },
+      "End": true
+    }
+  }
+}
